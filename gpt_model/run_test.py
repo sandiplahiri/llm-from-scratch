@@ -2,7 +2,7 @@ import torch
 import tiktoken
 from .gpt_model import GPTModel
 from .llm_configs import GPT_CONFIG_124M
-
+from utils.utils import generate_text_simple
 
 print("Creating sample dataset ...\n")
 tokenizer = tiktoken.get_encoding("gpt2")
@@ -47,3 +47,24 @@ total_params_gpt2 = (
 print(f"\nNumber of trainable parameters considering weight tying: {total_params_gpt2:,}")
 
 # The above should print 124,412,160, which is the number of parameters in the original GPT-2 124M model
+
+# Now run prediction
+start_context = "Hello, I am"
+print("Now running prediction on the sample dataset \"{start_context}\"...\n")
+encoded = tokenizer.encode(start_context)
+print("encoded:", encoded)
+# Add batch dimension
+encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+print("encoded_tensor_shape:", encoded_tensor.shape)
+
+# Disable dropout since we are not training the model
+model.eval()
+out = generate_text_simple(model=model,
+                           idx=encoded_tensor,
+                           max_new_tokens=6,
+                           context_size=GPT_CONFIG_124M["context_length"])
+print("Output:", out)
+print("Output length:", len(out[0]))
+
+decoded_text = tokenizer.decode(out.squeeze(0).tolist())
+print(decoded_text)
