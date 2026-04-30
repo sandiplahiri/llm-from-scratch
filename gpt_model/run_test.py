@@ -28,3 +28,22 @@ out = model(batch)
 print("Input batch:\n", batch)
 print("\n Output shape:", out.shape)
 print(out)
+
+# Calculate the total number of parameters in the model
+total_params = sum(p.numel() for p in model.parameters())
+print(f"\nTotal number of parameters: {total_params:,}")
+# The number printed is 163,009,536. Although we initialized this model with a 
+# 124 million-parametr GPT model, the original GPT-2 architecture reuses the weights from
+# the token embedding layer in its output layer. This is called wegiht tying.
+# So, let's look at the shapes of the token embedding layer and lineas output layer
+# that we have initialized above
+print("Token embedding layer shape:", model.tok_emb.weight.shape)
+print("Output layer shape:", model.out_head.weight.shape)
+
+# Let's remove the output layer parameter count from the total GPT-2 model count according to the weight tying
+total_params_gpt2 = (
+                      total_params - sum(p.numel() for p in model.out_head.parameters())
+      )  
+print(f"\nNumber of trainable parameters considering weight tying: {total_params_gpt2:,}")
+
+# The above should print 124,412,160, which is the number of parameters in the original GPT-2 124M model
