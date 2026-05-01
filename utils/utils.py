@@ -1,5 +1,6 @@
 import torch
 
+# This function generates text for a GPT model by always picking the most probable next token
 def generate_text_simple(model,
                          idx,  # idx is a (batch, n_tokens) array of indices in the current context
                          max_new_tokens,
@@ -29,4 +30,22 @@ def generate_text_simple(model,
         # Appends sampled indiex to the running sequence, where idx has shape (batch, n_tokens+1)
         idx = torch.cat((idx, idx_next), dim=-1)
 
-        return idx
+    return idx
+    
+# This function converts text to token IDs
+def text_to_token_ids(text, tokenizer):
+
+    encoded = tokenizer.encode(text,allowed_special={'<|endoftext|>'})
+
+    # .unsqueeze(0) adds the batch dimension
+    encoded_tensor = torch.tensor(encoded).unsqueeze(0)
+
+    return encoded_tensor
+
+# This function converts token IDs to text
+def token_ids_to_text(token_ids, tokenizer):
+
+    # Removed batch dimension
+    flat = token_ids.squeeze(0)
+
+    return tokenizer.decode(flat.tolist())
