@@ -37,6 +37,55 @@ def generate_text_simple(model,
         idx = torch.cat((idx, idx_next), dim=-1)
 
     return idx
+
+# This function generates text for a GPT model using temperature and top-k sampling
+def generate(model,
+             idx,  # idx is a (batch, n_tokens) array of indices in the current context
+             max_new_tokens,
+             context_size,
+             temperature=0.0,
+             top_k=None,
+             eos_id=None):
+    
+    for _ in range(max_new_tokens):
+        # Crops current context if it exceeds the context size. For example, if LLM
+        # supports only 5 tokens, and the context size is 10, then only the 
+        # *last* 5 tokens are used as context
+        idx_cond = idx[:, -context_size:]
+
+        with torch.no_grad():
+            logits = model(idx_cond)
+
+        # Focuses only on the last time step, so that (batch, n_tokens, vocab_size) becomes 
+        # (batch, vocab_size). This is because we only want to predict the next token, which 
+        # is based on the last token in the context
+        logits = logits[:, -1, :]
+
+        if top_k is not None:
+             # Filter logits with top_k sampling
+             top_logits, _ = torch.topk(logits, top_k)
+             min_val       = top_logits[:, -1]
+             logits        = torch.where(logits < min_val,
+                                         torch.tensor(float('-inf')).to(logits.device),
+                                         logits)
+        
+        if temperature > 0.0:
+             logits   = logits / temperature
+             probs    = torch.softmax(logits, dim=-1)
+             idx_next = torch.multinomial(probs, num_samples=1)
+        else:
+             # Use greedy next token selection method when temperature scaling is diasbled
+             # idx_next has shape (batch, 1)
+            idx_next = torch.argmax(logits, dim=-1, keepdim=True)
+
+        if idx_next == eos_id:
+            # Stop generating early if end-of-sequence token is encountered
+            break
+
+        idx = torch.cat((idx, idx_next), dim=-1)
+
+    return idx
+    
     
 # This function converts text to token IDs
 def text_to_token_ids(text, tokenizer):

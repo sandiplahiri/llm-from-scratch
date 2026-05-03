@@ -2,7 +2,7 @@ import torch
 import tiktoken
 from gpt_model import GPTModel
 from .llm_configs import GPT_CONFIG_124M
-from utils.utils import plot_losses, generate_text_simple, text_to_token_ids, token_ids_to_text, create_dataloader_v1, calc_loss_loader, train_model_simple
+from utils.utils import generate, plot_losses, generate_text_simple, text_to_token_ids, token_ids_to_text, create_dataloader_v1, calc_loss_loader, train_model_simple
 
 
 print("Test 1: GPTModel with modifiedGPT-2 124M parameter configuration as is (no pre-training) ...\n")
@@ -67,6 +67,10 @@ for x, y in val_loader:
     print(x.shape, y.shape)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# Use GPU on Apple Silicon chip if applicable
+# if torch.backends.mps.is_available():
+#    device = torch.device("mps")
+
 # If this code is run on a machine a CUDA-supported GPU, the LLM will
 # train on the GPU without making any changes to the code
 model.to(device)
@@ -106,3 +110,45 @@ plot_losses(epochs_tensor,
             tokens_seen, 
             train_losses,
             val_losses)
+
+print("Test 4: Generating text from the pre-trained model using temperature and top-k  ...\n")
+torch.manual_seed(123)
+token_ids = generate(model=model,
+                     idx=text_to_token_ids("Every effort moves you", tokenizer),
+                     max_new_tokens=15,
+                     context_size=GPT_CONFIG_124M["context_length"],
+                     top_k=25,
+                     temperature=1.4)
+                     
+print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
+
+print("Now saving the pre-trained model to model/simple_pretrained_model_with_optimizer_states.pth ...")
+# Save the model
+torch.save({"model_state_dict": model.state_dict(), 
+            "optimizer_state_dict": optimizer.state_dict()},
+            "model/simple_pretrained_model_with_optimizer_states.pth")
+
+# Loading this saved model
+print("Finally, loading the pre-trained model weights from model/simple_pretrained_model_with_optimizer_states.pth ...")
+checkpoint = torch.load("model/simple_pretrained_model_with_optimizer_states.pth", map_location=device)
+model = GPTModel(GPT_CONFIG_124M)
+model.load_state_dict(checkpoint["model_state_dict"])
+optimizer = torch.optim.AdamW(model.parameters(), 
+                              lr=5e-4, 
+                              weight_decay=0.1)
+optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+# Enable model training if further training is needed
+model.train()
+
+# For now, we will just evaluate this loaded model
+model.eval()
+print("Test 5: Generating text from the loaded pre-trained model using temperature and top-k  ...\n")
+torch.manual_seed(123)
+token_ids = generate(model=model,
+                     idx=text_to_token_ids("Every effort moves you", tokenizer),
+                     max_new_tokens=15,
+                     context_size=GPT_CONFIG_124M["context_length"],
+                     top_k=25,
+                     temperature=1.4)
+                     
+print("Output text:\n", token_ids_to_text(token_ids, tokenizer))
