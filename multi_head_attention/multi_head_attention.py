@@ -9,18 +9,20 @@ class MultiHeadAttention(nn.Module):
                  context_length,
                  dropout,
                  num_heads,
-                 qkv_bias=False):
+                 qkv_bias=False,
+                 print_data=False):
         super().__init__()
         assert(d_out % num_heads == 0), "d_out must be divisible by num_heads"
 
-        self.d_out     = d_out
-        self.num_heads = num_heads
-        self.head_dim  = d_out // num_heads
-        self.W_query   = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.W_key     = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.W_value   = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.out_proj  = nn.Linear(d_out, d_out)
-        self.dropout   = nn.Dropout(dropout)
+        self.d_out      = d_out
+        self.num_heads  = num_heads
+        self.head_dim   = d_out // num_heads
+        self.W_query    = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_key      = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_value    = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.out_proj   = nn.Linear(d_out, d_out)
+        self.dropout    = nn.Dropout(dropout)
+        self.print_data = print_data
 
         self.register_buffer("mask",
                              torch.triu(torch.ones(context_length, context_length), diagonal=1)
@@ -75,13 +77,15 @@ class MultiHeadAttention(nn.Module):
 
         # Combines heads, where self_d_out = self.num_heads * self_head_dim
         context_vec = context_vec.contiguous().view(b, num_tokens, self.d_out)
-        print("[MultiHeadAttention] context_vec before optional projection:", context_vec)
-        print("[MultiHeadAttention] context_vec shape before optional projection:", context_vec.shape)
+        if self.print_data:
+            print("[MultiHeadAttention] context_vec before optional projection:", context_vec)
+            print("[MultiHeadAttention] context_vec shape before optional projection:", context_vec.shape)
 
 
         # Adds an optional linear projection
         context_vec = self.out_proj(context_vec)
-        print("[MultiHeadAttention] context_vec after optional projection:", context_vec)
-        print("[MultiHeadAttention] context_vec shape after optional projection:", context_vec.shape)
+        if self.print_data:
+            print("[MultiHeadAttention] context_vec after optional projection:", context_vec)
+            print("[MultiHeadAttention] context_vec shape after optional projection:", context_vec.shape)
 
         return context_vec
