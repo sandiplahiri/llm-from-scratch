@@ -1,6 +1,7 @@
 from .utils import generate_text_simple
 
 __all__ = [
+    "random_split",
     "generate_text_simple",
     "generate",
     "text_to_token_ids",

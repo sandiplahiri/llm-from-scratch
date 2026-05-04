@@ -103,8 +103,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-model/
-gpt2/
+
 
 # Spyder project settings
 .spyderproject
@@ -136,3 +135,9 @@ dmypy.json
 *.pkl
 *.pt
 *.pth
+model/
+gpt2/
+sms_spam_collection/
+*.csv
+*.tsv
+*.zip

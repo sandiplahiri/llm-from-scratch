@@ -6,7 +6,27 @@ from torch.utils.data import DataLoader
 import tiktoken
 from .data_loader import GPTDatasetV1
 
-# This function generates text for a GPT model by always picking the most probable next token
+# Randomly splits the input dataset into training and validation datasets
+def random_split(df,
+                 train_frac,
+                 validation_frac):
+     
+     # Shuffle the entire Dataframe
+     df = df.sample(frac=1, random_state=123).reset_index(drop=True)
+     
+     # Calculate split indices
+     train_end      = int(len(df) * train_frac)
+     validation_end = train_end + int(len(df) * validation_frac)
+
+     # Split the Dataframe
+     train_df      = df[:train_end]
+     validation_df = df[train_end: validation_end]
+     test_df       = df[validation_end:]
+
+     return train_df, validation_df, test_df
+ 
+
+# Generates text for a GPT model by always picking the most probable next token
 def generate_text_simple(model,
                          idx,  # idx is a (batch, n_tokens) array of indices in the current context
                          max_new_tokens,
@@ -38,7 +58,7 @@ def generate_text_simple(model,
 
     return idx
 
-# This function generates text for a GPT model using temperature and top-k sampling
+# Generates text for a GPT model using temperature and top-k sampling
 def generate(model,
              idx,  # idx is a (batch, n_tokens) array of indices in the current context
              max_new_tokens,
@@ -87,7 +107,7 @@ def generate(model,
     return idx
     
     
-# This function converts text to token IDs
+# Converts text to token IDs
 def text_to_token_ids(text, tokenizer):
 
     encoded = tokenizer.encode(text,allowed_special={'<|endoftext|>'})
@@ -105,7 +125,7 @@ def token_ids_to_text(token_ids, tokenizer):
 
     return tokenizer.decode(flat.tolist())
 
-# This function generates batches from input text
+# Generates batches from input text
 def create_dataloader_v1(txt,
                          batch_size=4,
                          max_length=256,
@@ -129,7 +149,7 @@ def create_dataloader_v1(txt,
         
         return dataloader
 
-# This function returns cross-entropy loss of a given batch given returned 
+# Returns cross-entropy loss of a given batch given returned 
 # via the training and validation loader
 def calc_loss_batch(input_batch,
                     target_batch,
@@ -147,7 +167,7 @@ def calc_loss_batch(input_batch,
        
        return loss
 
-# This function computes the average training and validation loss over all batches
+# Computes the average training and validation loss over all batches
 def calc_loss_loader(data_loader,
                      model,
                      device,
