@@ -8,5 +8,8 @@ __all__ = [
     "create_dataloader_v1",
     "calc_loss_loader",
     "train_model_simple",
-    "plot_losses"
+    "plot_losses",
+    "download_and_load_gpt2",
+    "assign",
+    "load_weights_into_gpt"
 ]

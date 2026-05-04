@@ -66,10 +66,17 @@ print("\nValidation loader:)")
 for x, y in val_loader:
     print(x.shape, y.shape)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# Use GPU on Apple Silicon chip if applicable
-# if torch.backends.mps.is_available():
-#    device = torch.device("mps")
+if torch.cuda.is_available():
+    device = torch.device("cuda")
+elif torch.backends.mps.is_available():
+    # Use PyTorch 2.9 or newer for stable mps results
+    major, minor = map(int, torch.__version__.split(".")[:2])
+    if (major, minor) >= (2, 9):
+        device = torch.device("mps")
+else:
+    device = torch.device("cpu")
+
+print("Device:", device)
 
 # If this code is run on a machine a CUDA-supported GPU, the LLM will
 # train on the GPU without making any changes to the code
