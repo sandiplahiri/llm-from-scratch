@@ -6,6 +6,13 @@ import pandas as pd
 from utils.utils import random_split
 from .spam_dataset import SpamDataset
 import tiktoken
+import torch
+from torch.utils.data import DataLoader
+from pretraining.llm_configs import GPT_CONFIG_124M
+from utils.gpt_download import download_and_load_gpt2
+from gpt_model import GPTModel
+from utils.load_model_utils import load_weights_into_gpt
+from utils.utils import generate, generate_text_simple, text_to_token_ids, token_ids_to_text
 
 # Downloads and unzips the spam/no-spam dataset
 def download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path):
@@ -82,6 +89,7 @@ train_dataset = SpamDataset(csv_file="train.csv",
                             max_length=None,
                             tokenizer=tokenizer)
 print("The longest in training dataset sequence:", train_dataset.max_length)
+print("train_dataset[0]:", train_dataset[0])
 
 # Pad the validation and test sets to match the length of the longest training sequence.
 # Any validation and test samples exceeding the length of the longest training example 
@@ -92,6 +100,106 @@ print("The longest in training dataset sequence:", train_dataset.max_length)
 val_dataset = SpamDataset(csv_file="validation.csv",
                           max_length=train_dataset.max_length,
                           tokenizer=tokenizer)
+
 test_dataset = SpamDataset(csv_file="test.csv",
                            max_length=train_dataset.max_length,
                            tokenizer=tokenizer)
+
+# Create PyTorch data loaders
+num_workers = 0
+batch_size  = 8
+torch.manual_seed(123)
+
+train_loader = DataLoader(dataset=train_dataset,
+                          batch_size=batch_size,
+                          shuffle=True,
+                          num_workers=num_workers,
+                          drop_last=True)
+
+val_loader   = DataLoader(dataset=val_dataset,
+                          batch_size=batch_size,
+                          shuffle=True,
+                          num_workers=num_workers,
+                          drop_last=True)
+
+test_loader  = DataLoader(dataset=test_dataset,
+                          batch_size=batch_size,
+                          shuffle=True,
+                          num_workers=num_workers,
+                          drop_last=True)
+
+for input_batch, target_batch in train_loader:
+    pass
+
+print("Input batch dimensions:", input_batch.shape)
+print("Label batch dimensions:", target_batch.shape)
+
+print(f"{len(train_loader)} training batches")
+print(f"{len(val_loader)} validation batches")
+print(f"{len(test_loader)} test batches")
+
+# Next, we initiliaze a model with pretrained weights
+CHOOSE_MODEL = "gpt2-small (124M)"
+
+model_configs = {
+                  "gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
+                  "gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
+                  "gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
+                  "gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25}
+                }
+
+BASE_CONFIG = GPT_CONFIG_124M.copy()
+BASE_CONFIG.update(model_configs[CHOOSE_MODEL])  
+BASE_CONFIG.update({"context_length": 1024})
+BASE_CONFIG.update({"qkv_bias": True})
+
+model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
+settings, params = download_and_load_gpt2(model_size=model_size, models_dir="gpt2")
+
+model = GPTModel(BASE_CONFIG)
+load_weights_into_gpt(model, params)
+model.eval()
+
+text_1 = "Every effort moves you"
+token_ids = generate_text_simple(model=model,
+                                 idx=text_to_token_ids(text_1, tokenizer),
+                                 max_new_tokens=15,
+                                 context_size=BASE_CONFIG["context_length"])
+
+print(token_ids_to_text(token_ids, tokenizer))
+
+print(model)
+
+# For classification fine-tuning, freeze the model, i.e., make all layers nontrainable 
+for param in model.parameters():
+    param.requires_grad = False
+
+# Then, replace the output layer (model.out_head), which originally maps the layer inputs
+# to 50,257 dimensions, the size of the vocabulary
+torch.manual_seed(123)
+num_classes = 2
+model.out_head = torch.nn.Linear(in_features=BASE_CONFIG["emb_dim"],
+                                 out_features=num_classes)
+
+# Fine-tuning additional layets can noticeable improve the predictive 
+# performance of the model. We also configure the last transformer block
+# and the final LayerNorm module, which connects this block to the output
+# layer, to be trainable.
+# To make the final LayerNorm and last transformer block trainable, set
+# their respective requires_grad to True
+for param in model.trf_blocks[-1].parameters():
+    param.requires_grad = True
+
+for param in model.final_norm.parameters():
+    param.requires_grad = True
+
+# At the output layer, we will get a [1, num_tokens/context_length, 2].
+# As we are interested in fine-tuning this model to return a class label
+# indicating whether a model output is "spam" or "not spam", we do not 
+# need to fine-tune all num_token output rows. Instead, we can focus on a single 
+# output token. In particular, we will focus on the last row corresponding to the 
+# last output token.
+# Given the causal attention mask setup, the last last token in a sequence 
+# accumulates the lost information since it is the only token with access
+# to data from all the previous tokens. Therefore, in this spam classification 
+# task, we focus on this last token during the fine-tuning process
