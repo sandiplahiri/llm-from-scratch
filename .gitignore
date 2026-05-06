@@ -141,3 +141,4 @@ sms_spam_collection/
 *.csv
 *.tsv
 *.zip
+*.pdf

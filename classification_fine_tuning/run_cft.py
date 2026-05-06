@@ -13,7 +13,9 @@ from utils.gpt_download import download_and_load_gpt2
 from gpt_model import GPTModel
 from utils.load_model_utils import load_weights_into_gpt
 from utils.utils import train_classifier_simple, calc_loss_loader, calc_accuracy_loader, generate, generate_text_simple, text_to_token_ids, token_ids_to_text
+from utils.plot_utils import plot_values
 import time
+from .classify_review import classify_review
 
 
 # Downloads and unzips the spam/no-spam dataset
@@ -273,4 +275,65 @@ train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier
 end_time = time.time()
 
 execution_time_minutes = (end_time - start_time) / 60
-print(f"TRaining completed in {execution_time_minutes: .2f} minutes.")
+print(f"Training completed in {execution_time_minutes: .2f} minutes.")
+
+# Plot the resulting loss curves
+epochs_tensor = torch.linspace(0,
+                                num_epochs,
+                                len(train_losses))
+
+examples_seen_tensor = torch.linspace(0,
+                                      examples_seen,
+                                      len(train_losses))
+
+plot_values(epochs_tensor,
+            examples_seen_tensor,
+            train_losses,
+            val_losses)
+
+# Plot the classification accuracies
+epochs_tensor = torch.linspace(0,
+                                num_epochs,
+                                len(train_accs))
+
+examples_seen_tensor = torch.linspace(0,
+                                      examples_seen,
+                                      len(train_accs))
+
+plot_values(epochs_tensor,
+            examples_seen_tensor,
+            train_accs,
+            val_accs,
+            label="accuracy")
+
+# Calculate the performance metrics for training, validation, and test sets 
+# across tjhe entire dataset, this time without definiting the iter_eval value
+train_accuracy = calc_accuracy_loader(train_loader, model, device)
+val_accuracy = calc_accuracy_loader(val_loader, model, device)
+test_accuracy = calc_accuracy_loader(test_loader, model, device)
+
+print(f"Training accuracy: {train_accuracy * 100: .2f}%")
+print(f"Validation accuracy: {val_accuracy * 100: .2f}%")
+print(f"Test accuracy: {test_accuracy * 100: .2f}%")
+
+text_1 = ("You are a winner you have been specially selected to receive $1000 cash or a $2000 award")
+
+print(classify_review(text_1, 
+                      model,
+                      tokenizer,
+                      device,
+                      max_length=train_dataset.max_length))
+
+text_2 = "Hey, just wanted to check if we're still on for dinner tonight? Let me know!"
+print(classify_review(text_2, 
+                      model,
+                      tokenizer,
+                      device,
+                      max_length=train_dataset.max_length))
+
+# Save the model
+torch.save(model.state_dict(), "review_classifier.pth")
+
+# Load the model
+model_state_dict = torch.load("review_classifier.pth", map_location=device)
+model.load_state_dict(model_state_dict)
