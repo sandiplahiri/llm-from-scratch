@@ -154,16 +154,22 @@ def create_dataloader_v1(txt,
 def calc_loss_batch(input_batch,
                     target_batch,
                     model,
-                    device):
+                    device,
+                    use_last_token=False):
        
        # Transfer to a GPU
        input_batch  = input_batch.to(device)
        target_batch = target_batch.to(device)
        
-       logits = model(input_batch)
-       loss = torch.nn.functional.cross_entropy(logits.flatten(0, 1),    # Flattens (batch size, number of tokens, vocabulary size)
+       if use_last_token == True:
+            # Logits of the last output token
+            logits = model(input_batch)[:, -1, :]
+            loss   = torch.nn.functional.cross_entropy(logits, target_batch)
+       else:
+            logits = model(input_batch)
+            loss   = torch.nn.functional.cross_entropy(logits.flatten(0, 1),    # Flattens (batch size, number of tokens, vocabulary size)
                                                                          # to (batch size * number of tokens, vocabulary size)
-                                                target_batch.flatten())
+                                                        target_batch.flatten())
        
        return loss
 
@@ -171,7 +177,8 @@ def calc_loss_batch(input_batch,
 def calc_loss_loader(data_loader,
                      model,
                      device,
-                     num_batches=None):
+                     num_batches=None,
+                     use_last_token=False):
      
     total_loss = 0.
     if len(data_loader) == 0:
@@ -187,7 +194,7 @@ def calc_loss_loader(data_loader,
     
     for i, (input_batch, target_batch) in enumerate(data_loader):
         if i < num_batches:
-             loss = calc_loss_batch(input_batch, target_batch, model, device)
+             loss = calc_loss_batch(input_batch, target_batch, model, device, use_last_token)
 
              # Sums loss for each batch
              total_loss += loss.item()
@@ -251,12 +258,82 @@ def train_model_simple(model,
         
     return train_losses, val_losses, track_tokens_seen
 
+# Fine-tunes the model to classify spam
+def train_classifier_simple(model,
+                            train_loader,
+                            val_loader,
+                            optimizer,
+                            device,
+                            num_epochs,
+                            eval_freq,
+                            eval_iter):
+     
+     # Initialize lists to track losses and examples seen
+     train_losses, val_losses, train_accs, val_accs = [], [], [], []
+     examples_seen, global_step = 0, -1
+
+     for epoch in range(num_epochs):
+          model.train()
+
+          for input_batch, target_batch in train_loader:
+               # Reset loss gradients from the previous batch iteration
+               optimizer.zero_grad()
+
+               loss = calc_loss_batch(input_batch,
+                                      target_batch,
+                                      model,
+                                      device,
+                                      use_last_token=True)
+               
+               # Calculate loss gradients
+               loss.backward()
+
+               # Update the model weights using loss gradients
+               optimizer.step()
+
+               # Track examples instead of tokens
+               examples_seen += input_batch.shape[0]
+               global_step += 1
+               
+               # Evaluate
+               if global_step % eval_freq == 0:
+                    train_loss, val_loss = evaluate_model(model,
+                                                          train_loader,
+                                                          val_loader,
+                                                          device,
+                                                          eval_iter,
+                                                          use_last_token=True)
+                    train_losses.append(val_loss)
+                    val_losses.append(val_loss)
+
+                    print(f"Ep {epoch+1} (Step {global_step:06d})): Train loss: {train_loss:.3f}, Val Loss: {val_loss:.3f}")
+                
+          # Calculate accuracy after each epoch
+          train_accuracy = calc_accuracy_loader(train_loader,
+                                                model,
+                                                device,
+                                                num_batches=eval_iter)
+          
+          val_accuracy   = calc_accuracy_loader(val_loader,
+                                                model,
+                                                device,
+                                                num_batches=eval_iter)
+          print(f"Training accuracy: {train_accuracy * 100: .2f}% | ", end="")
+          print(f"Validation accuracy: {val_accuracy * 100: .2f}%")
+
+          train_accs.append(train_accuracy)
+          val_accs.append(val_accuracy)
+
+     return train_losses, val_losses, train_accs, val_accs, examples_seen
+     
+
 # This function evaluates the input model
 def evaluate_model(model,
                    train_loader,
                    val_loader,
                    device,
-                   eval_iter):
+                   eval_iter,
+                   use_last_token=False):
      
      # Dropout is disabled during evaluation for stable, reproducible results
      model.eval()
@@ -267,17 +344,19 @@ def evaluate_model(model,
           train_loss = calc_loss_loader(train_loader,
                                         model,
                                         device,
-                                        num_batches=eval_iter)
+                                        num_batches=eval_iter,
+                                        use_last_token=use_last_token)
           val_loss = calc_loss_loader(val_loader,
                                       model,
                                       device,
-                                      num_batches=eval_iter)
+                                      num_batches=eval_iter,
+                                      use_last_token=use_last_token)
           
           model.train()
 
           return train_loss, val_loss
      
-# This function helps to check whether the model improves during training.
+# Checks whether the model improves during training.
 # It takes a text snippet (start_context) as input, converts it into token IDs, 
 # and feeds it to the LLM to generate a text sample using the generate_text_simple function
 def generate_and_print_simple(model,
@@ -302,7 +381,41 @@ def generate_and_print_simple(model,
 
      model.train()
 
-# This function plots the training and validation set losses side by side
+# Calculates classification accuracy 
+def calc_accuracy_loader(data_loader,
+                         model,
+                         device,
+                         num_batches=None):
+     
+     model.eval()
+     correct_predictions, num_examples = 0, 0
+
+     if num_batches is None:
+          num_batches = len(data_loader)
+     else:
+        # Reduce the number of batches to match the total number of batches in the data loader
+          # if num_batches exceeds the number of batches in the data loader
+          num_batches = min(num_batches, len(data_loader))
+
+     for i, (input_batch, target_batch) in enumerate(data_loader):
+          if i < num_batches:
+               input_batch  = input_batch.to(device)
+               target_batch = target_batch.to(device)
+
+               with torch.no_grad():
+                    # Logits of the last output token
+                    logits = model(input_batch)[:, -1, :]
+
+               predicted_labels = torch.argmax(logits, dim=-1)
+               num_examples += predicted_labels.shape[0]
+               correct_predictions += ((predicted_labels == target_batch).sum().item())
+          else:
+               break
+          
+     return correct_predictions / num_examples
+
+
+# Plots the training and validation set losses side by side
 def plot_losses(epochs_seen,
                 tokens_seen,
                 train_losses,
@@ -326,3 +439,26 @@ def plot_losses(epochs_seen,
      fig.tight_layout()
      plt.show()
 
+# Plots the training and validation set losses side by side
+def plot_losses(epochs_seen,
+                tokens_seen,
+                train_losses,
+                val_losses):
+     
+     fig, ax1 = plt.subplots(figsize=(5,3))
+     ax1.plot(epochs_seen,
+              train_losses,
+              label="Training loss")
+     ax1.plot(epochs_seen,
+              val_losses,
+              linestyle="-.",
+              label="Validation loss")
+     ax1.set_xlabel =("Epochs")
+     ax1.set_ylabel("Loss")
+     ax1.legend(loc="upper right")
+     ax1.xaxis.set_major_locator(MaxNLocator(integer=True))
+     ax2 = ax1.twiny()
+     ax2.plot(tokens_seen, train_losses, alpha=0)
+     ax2.set_xlabel("Tokens seen")
+     fig.tight_layout()
+     plt.show()

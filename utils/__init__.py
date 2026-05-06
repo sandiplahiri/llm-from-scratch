@@ -12,5 +12,7 @@ __all__ = [
     "plot_losses",
     "download_and_load_gpt2",
     "assign",
-    "load_weights_into_gpt"
+    "load_weights_into_gpt",
+    "calc_accuracy_loader",
+    "train_classifier_simple"
 ]

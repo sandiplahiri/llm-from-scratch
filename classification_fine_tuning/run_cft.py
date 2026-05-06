@@ -12,7 +12,9 @@ from pretraining.llm_configs import GPT_CONFIG_124M
 from utils.gpt_download import download_and_load_gpt2
 from gpt_model import GPTModel
 from utils.load_model_utils import load_weights_into_gpt
-from utils.utils import generate, generate_text_simple, text_to_token_ids, token_ids_to_text
+from utils.utils import train_classifier_simple, calc_loss_loader, calc_accuracy_loader, generate, generate_text_simple, text_to_token_ids, token_ids_to_text
+import time
+
 
 # Downloads and unzips the spam/no-spam dataset
 def download_and_unzip_spam_data(url, zip_path, extracted_path, data_file_path):
@@ -203,3 +205,72 @@ for param in model.final_norm.parameters():
 # accumulates the lost information since it is the only token with access
 # to data from all the previous tokens. Therefore, in this spam classification 
 # task, we focus on this last token during the fine-tuning process
+
+# Calculate classificationa accuracies across various datasets for 10 batches
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)
+
+torch.manual_seed(123)
+train_accuracy = calc_accuracy_loader(train_loader,
+                                      model,
+                                      device,
+                                      num_batches=10)
+
+val_accuracy   = calc_accuracy_loader(val_loader,
+                                      model,
+                                      device,
+                                      num_batches=10)
+
+test_accuracy  = calc_accuracy_loader(test_loader,
+                                      model,
+                                      device,
+                                      num_batches=10)
+
+print(f"\nTraining accuracy: {train_accuracy*100: .2f}%")
+print(f"Validation accuracy: {val_accuracy*100: .2f}%")
+print(f"Test accuracy: {test_accuracy*100: .2f}%")
+
+with torch.no_grad():
+    train_loss = calc_loss_loader(train_loader,
+                                   model,
+                                   device,
+                                   num_batches=5,
+                                   use_last_token=True)
+    
+    val_loss   = calc_loss_loader(val_loader,
+                                   model,
+                                   device,
+                                   num_batches=5,
+                                   use_last_token=True)
+    
+    test_loss  = calc_loss_loader(test_loader,
+                                   model,
+                                   device,
+                                   num_batches=5,
+                                   use_last_token=True)
+    
+print(f"Training loss: {train_loss: .3f}%")
+print(f"Validation loss: {val_loss: .3f}%")
+print(f"Test loss: {test_loss: .3f}%")
+
+start_time=time.time()
+torch.manual_seed(123)
+
+optimizer  = torch.optim.AdamW(model.parameters(),
+                               lr=5e-5,
+                               weight_decay=0.1)
+num_epochs = 5
+
+train_losses, val_losses, train_accs, val_accs, examples_seen = train_classifier_simple(model,
+                                                                                        train_loader,
+                                                                                        val_loader,
+                                                                                        optimizer,
+                                                                                        device,
+                                                                                        num_epochs=num_epochs,
+                                                                                        eval_freq=50,
+                                                                                        eval_iter=5)
+
+end_time = time.time()
+
+execution_time_minutes = (end_time - start_time) / 60
+print(f"TRaining completed in {execution_time_minutes: .2f} minutes.")
