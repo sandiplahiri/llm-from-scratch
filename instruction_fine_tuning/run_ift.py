@@ -2,7 +2,10 @@ from utils.utils import download_and_load_file, format_input, custom_collate_fn,
 from utils.instruction_dataset import InstructionDataset
 import tiktoken
 import torch
+import json
+import re
 import time
+from tqdm import tqdm
 from functools import partial
 from torch.utils.data import DataLoader
 from utils.gpt_download import download_and_load_gpt2
@@ -226,3 +229,36 @@ for entry in test_data[:3]:
     print(f"\nCorrect response:\n>> {entry['output']}")
     print(f"\nModel response:\n>> {response_text.strip()}")
     print("-" * 20)
+
+# Use another LLM to evaluate this fine-tuned model's response. To prepare for this
+# evaluation process, append the generated model responses to the test_set dictionary.
+# Then save the updated updated data as a JSON file for record keeping. Additionally, 
+# by saving this file, we can easily load and analyze the responses in separate
+# Python sessions later on if needed. The following code uses the generate method in 
+# the same manner as above. But it now iterates over the entire test set. Also, instead
+# of printing the model responses, we add them to the test_set dictionary
+for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
+    input_text = format_input(entry)
+    token_ids  = generate(model=model,
+                          idx=text_to_token_ids(input_text, tokenizer).to(device),
+                          max_new_tokens=256,
+                          context_size=BASE_CONFIG["context_length"],
+                          eos_id=50256)
+    
+    generated_text = token_ids_to_text(token_ids, tokenizer)
+    response_text  = generated_text[len(input_text):].replace("### Response:", "").strip()
+
+    test_data[i]["model_response"] = response_text
+
+with open("instruction-data-with-response.json", "w") as file:
+    json.dump(test_data, file, indent=4)
+
+print("n", test_data[0])
+# Save the model as gpt-2medium355M-sft.pth to be able to reuse it in future projects
+# Remove white spaces and parentheses from the file name
+file_name = f"{re.sub(r'[ ()]', "", CHOOSE_MODEL)}-sft.pth"
+torch.save(model.state_dict(), file_name)
+
+print(f"Model saved as {file_name}")
+
+# The saved model can now be uploaded via model.load_state_dict(torch.load("gpt2-medium355M-sft.pth"))
