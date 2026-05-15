@@ -142,3 +142,4 @@ sms_spam_collection/
 *.tsv
 *.zip
 *.pdf
+*.json

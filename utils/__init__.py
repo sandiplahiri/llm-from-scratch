@@ -15,5 +15,9 @@ __all__ = [
     "calc_accuracy_loader",
     "train_classifier_simple",
     "plot_values",
-    "plot_losses"
+    "plot_losses",
+    "download_and_load_file",
+    "format_input",
+    "InstructionDataset",
+    "custom_collate_fn,"
 ]

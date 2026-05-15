@@ -4,6 +4,77 @@ from torch.utils.data import DataLoader
 import tiktoken
 from .data_loader import GPTDatasetV1
 
+import json
+import os
+import urllib 
+
+def download_and_load_file(file_path,
+                           url):
+     
+     if not os.path.exists(file_path):
+          with urllib.request.urlopen(url) as response:
+               text_data = response.read().decode("utf-8")
+          with open(file_path, "w", encoding="utf-8") as file:
+               file.write(text_data)
+     
+     with open(file_path, "r") as file:
+          data = json.load(file)
+          
+     return data
+
+def format_input(entry):
+     instruction_text = (
+          f"Below is an instruction that describes a task. Write a response that appropriiately completes the request."
+          f"\n\n### Instruction: \n{entry['instruction']}"  
+     )
+
+     input_text = f"\n\n### Input: \n{entry['input']}" if entry["input"] else ""
+
+     return instruction_text + input_text
+
+
+def custom_collate_fn(batch,
+                      pad_token_id=50256,
+                      ignore_index=-100,
+                      allowed_max_length=None,
+                      device="cpu"):
+     
+     batch_max_length = max(len(item) + 1 for item in batch)  # +1 for the end-of-sequence token
+     inputs_1st, targets_1st = [], []
+
+     for item in batch:
+          new_item  = item.copy()
+          new_item += [pad_token_id]
+
+          # Pads sequences to max_length
+          padded = (
+               new_item + [pad_token_id] * (batch_max_length - len(new_item))
+          )
+
+          inputs  = torch.tensor(padded[:-1]) # Excludes the last token for inputs
+          targets = torch.tensor(padded[1:]) # Shifts +1 to the right for targets
+
+          # Replace all but the first padding tokens in targets by ignore_index
+          # Get a boolean mask where True indicates padding tokens in targets
+          mask    = targets == pad_token_id
+          indices = torch.nonzero(mask).squeeze()
+
+          if indices.numel() > 1:
+               targets[indices[1:]] = ignore_index
+
+          # Optionally truncate to the maximum sequence length
+          if allowed_max_length is not None:
+               inputs  = inputs[:allowed_max_length]
+               targets = targets[:allowed_max_length]
+
+          inputs_1st.append(inputs)
+          targets_1st.append(targets)
+
+     inputs_tensor = torch.stack(inputs_1st).to(device)
+     targets_tensor = torch.stack(targets_1st).to(device)
+
+     return inputs_tensor, targets_tensor
+
 # Randomly splits the input dataset into training and validation datasets
 def random_split(df,
                  train_frac,
