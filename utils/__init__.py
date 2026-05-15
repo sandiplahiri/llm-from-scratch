@@ -19,5 +19,8 @@ __all__ = [
     "download_and_load_file",
     "format_input",
     "InstructionDataset",
-    "custom_collate_fn,"
+    "custom_collate_fn",
+    "check_if_running",
+    "query_model",
+    "generate_model_scores"
 ]
