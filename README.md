@@ -4,7 +4,7 @@ Educational PyTorch implementation of GPT-style language model components, follo
 
 The repository is organized as small runnable modules so each stage can be inspected independently before moving to the next one.
 
-The code in this repo is from [Build a Large Language Model (From Scratch)](https://www.amazon.com/Build-Large-Language-Model-Scratch/dp/1633437167/ref=sr_1_1?crid=MIO4ROHC1CIM&dib=eyJ2IjoiMSJ9.FF-y_ldwnHsvWlfV17ZzHeBq0ELLCCTq-CnZVCrusyaUX5lY_GQfEjBnHSKDmFj-G0L7maFzD8fklEIMDijyPQ9AV4qF4AepqQlEY6eTt8adjl2dSsrxZcB5slXQ4ARUgPRbvZ1VgZ156q_HpwUoCq4SNcT9Ru4g9V1Icjv9krE-zJWpYUGyJo81_jETVsTk.jxOcz4GB1oXi8kHhkV4RoIkIw52mlKldKvxHbpQfQbI&dib_tag=se&keywords=sebastian+raschka+build+a+large+language+model+from+scratch&nsdOptOutParam=true&qid=1778937954&sprefix=%2Caps%2C106&sr=8-1) by Dr. Sebastian Raschka and copyrighted by him.
+The code in this repo is from [Build a Large Language Model (From Scratch)](https://www.manning.com/books/build-a-large-language-model-from-scratch) by Dr. Sebastian Raschka and copyrighted by him.
 
 ## What Is Included
 
