@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import torch
 import tiktoken
 from .gpt_model import GPTModel

@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import torch.nn as nn
 
 # The feedforward network is a small neural network consisting of two Linear layers, and a GELU activation 

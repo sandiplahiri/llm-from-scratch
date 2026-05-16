@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 from utils.gpt_download import download_and_load_gpt2
 from utils.load_model_utils import load_weights_into_gpt
 from utils.utils import generate,text_to_token_ids, token_ids_to_text

@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 from .utils import create_dataloader_v1
 
 # Run this from the project directory using the command

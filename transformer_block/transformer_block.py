@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import torch.nn as nn
 from multi_head_attention import MultiHeadAttention
 from .feed_forward_nn import FeedForward

@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 from utils.utils import download_and_load_file, format_input, custom_collate_fn, token_ids_to_text
 from utils.instruction_dataset import InstructionDataset
 import tiktoken

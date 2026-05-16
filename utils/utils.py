@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 from requests import request
 import torch
 from torch.utils.data import DataLoader 

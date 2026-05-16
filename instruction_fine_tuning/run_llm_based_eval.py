@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import json
 from tqdm import tqdm
 from utils.utils import (check_if_running,

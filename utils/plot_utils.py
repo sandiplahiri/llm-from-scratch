@@ -1,3 +1,7 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 

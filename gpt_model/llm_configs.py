@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 GPT_CONFIG_124M = {
     "vocab_size": 50257,    # Vocabulary size
     "context_length": 1024, # Context length

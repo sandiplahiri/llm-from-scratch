@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import torch
 import pandas as pd
 from torch.utils.data import Dataset

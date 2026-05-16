@@ -1,3 +1,6 @@
+# Copyright (c) Sebastian Raschka.
+# Source code: "Build a Large Language Model From Scratch"
+
 import torch
 from torch.utils.data import Dataset
 from utils.utils import format_input
